@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600" rel="stylesheet">
+    <link rel="stylesheet" href="css/reset.min.css">
+    <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="container">
+        <div class="left">
+            <div class="top">
+                <input type="text" placeholder="Search" />
+                <a href="javascript:;" class="search"></a>
+
+            </div>
+
+            <ul class="people" th:each="friend : ${friend}">
+                <form  action="change" method="post" onsubmit="return false" th:id="change+${friend.f_id}">
+
+
+                    <li class="person" data-chat="person" th:id="person+${friend.f_id}" >
+                        <script>
+                            var a ="person"+[[${friend.f_id}]];
+                            var rd = document.getElementById(a);
+                            rd.setAttribute("data-chat","person"+[[${friend.f_id}]]);
+                        </script>
+                        <img th:src="${friend.f_image}" alt="" />
+                        <span class="name"><p th:text="${friend.f_name}">Thomas Bangalter</p></span>
+                        <span class="time">2:09 PM</span>
+                        <span class="preview" id="ll">I was wondering...</span>
+                        <input type="hidden" th:value="${session.user.id}" name="user_id">
+                        <input class="form" type="hidden" th:value="${friend.f_id}" name="f_id">
+                    </li>
+                    </form>
+
+            </ul>
+
+        </div>
+        <div class="right" th:if="${one}">
+            <div class="top" ><span>To: <span class="name" id="nd" th:value="${one.id}" th:text="${one.username}">Dog Woofson</span></span></div>
+
+                <div class="chat" data-chat="person" id="rd" >
+
+
+                    <div class="bubble me" th:each="record : ${record}" th:id="${record.id}" >
+                        <script>
+                            var b =[[${record.id}]];
+                            var rd = document.getElementById("rd");
+                            rd.setAttribute("data-chat","person"+[[${one.id}]]);
+                            var rr = document.getElementById(b);
+                            if([[${record.user_id}]]==[[${session.user.id}]]){
+                                rr.setAttribute("class","bubble me");
+                            }
+                            else{
+                                rr.setAttribute("class","bubble you");
+                            }
+
+                        </script>
+                        <span th:text="${record.message}"></span>
+                    </div>
+
+
+                </div>
+
+
+            <div class="write">
+                <a href="javascript:;" class="write-link attach"></a>
+                <input  id="content" type="text"></input>
+                <input type="hidden" th:value="${session.user.id}" name="uid" id="uid">
+                <input type="hidden" th:value="${session.user.username}" name="username" id="username">
+                <input type="hidden" th:value="${one.id}" name="fid" id="fid">
+                <a href="javascript:;" class="write-link smiley"></a>
+                <a href="javascript:;" class="write-link send"></a>
+            </div>
+
+
+
+
+
+
+        </div>
+    </div>
+</div>
+
+
+
+<script  src="js/index.js"></script>
+<script  th:inline="javascript">
+    var uid = document.getElementById('uid').value;
+    var fid = document.getElementById('fid').value;
+
+    //var usr=[[${usr}]];
+    var websocket = null;
+    //判断当前浏览器是否支持WebSocket
+    if ('WebSocket' in window) {
+        //2,123 2登录用户标识,123会话id
+        //[[${session.usr}]]获取session的用户标识
+        var url = 'ws://localhost:8080/websocket/'  + [[${session.user.username}]] + ","+[[${session.user.id}]];
+        websocket = new WebSocket(url);
+    } else {
+        alert('当前浏览器 Not support websocket')
+    }
+    //连接发生错误的回调方法
+    websocket.onerror = function() {
+        alert("WebSocket连接发生错误");
+    };
+    //连接成功建立的回调方法
+    websocket.onopen = function() {
+        console.log("WebSocket连接成功");
+    }
+    //接收到消息的回调方法
+    websocket.onmessage = function(event) {
+        setMessageInnerHTML(event.data);
+    }
+    //连接关闭的回调方法
+    websocket.onclose = function() {
+        console.log("WebSocket连接关闭");
+    }
+    //监听窗口关闭事件，当窗口关闭时，主动去关闭websocket连接，防止连接还没断开就关闭窗口，server端会抛异常。
+    window.onbeforeunload = function() {
+        closeWebSocket();
+    }
+    //将消息显示在网页上
+    function setMessageInnerHTML(innerHTML) {
+
+
+        var json=JSON.parse(innerHTML);
+        var uid =json.uid;
+        if(uid ==[[${session.user.id}]]  ){
+            var j =json.message;
+            console.log(j);
+
+            var tag =document.createElement('div');
+            tag.setAttribute('class','bubble me');
+            var sp=document.createElement('span');
+
+            sp.innerHTML +=j +'<br/>';
+            tag.appendChild(sp);
+
+            document.getElementById('rd').appendChild(tag);
+
+        }
+
+        else {
+            var j =json.message;
+            console.log(j);
+
+            var tag =document.createElement('div');
+            tag.setAttribute('class','bubble you');
+            var sp=document.createElement('span');
+
+            sp.innerHTML +=j +'<br/>';
+            tag.appendChild(sp);
+
+            document.getElementById('rd').appendChild(tag);
+
+        }
+
+
+
+    }
+    //关闭WebSocket连接
+    function closeWebSocket() {
+        websocket.close();
+    }
+
+
+
+
+
+    document.onkeydown = function (event)  {
+        var e = event || window.event;
+        if (e && e.keyCode == 13) {
+            var text = document.getElementById('content').value;
+            console.log(document.getElementById('username').value);
+            websocket.send(JSON.stringify({'message':text,'fid':document.getElementById('fid').value,'uid':[[${session.user.id}]]}));
+            document.getElementById('content').value = '';
+
+        }
+    }
+
+</script>
+
+
+</body>
+</html>
